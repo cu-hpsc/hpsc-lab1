@@ -275,6 +275,7 @@ int main(int argc, char **argv)
     STREAM_TYPE		scalar;
     double		t;
     double *(times[NTESTS]);
+    int sind;
 
     // argument parsing
     static struct argp argp = {options, parse_opt, NULL, NULL};
@@ -394,8 +395,10 @@ int main(int argc, char **argv)
         tuned_STREAM_Copy(args.stream_array_size);
 #else
 #pragma omp parallel for
-	for (j=0; j<args.stream_array_size; j++)
+        for (sind=0; sind<args.stride; ++sind) {
+          for (j=sind; j<args.stream_array_size; j+=args.stride)
 	    c[j] = a[j];
+        }
 #endif
 	times[0][k] = mysecond() - times[0][k];
 	
@@ -404,8 +407,10 @@ int main(int argc, char **argv)
         tuned_STREAM_Scale(args.stream_array_size,scalar);
 #else
 #pragma omp parallel for
-	for (j=0; j<args.stream_array_size; j++)
+        for (sind=0; sind<args.stride; ++sind) {
+          for (j=sind; j<args.stream_array_size; j+=args.stride)
 	    b[j] = scalar*c[j];
+        }
 #endif
 	times[1][k] = mysecond() - times[1][k];
 	
@@ -414,8 +419,10 @@ int main(int argc, char **argv)
         tuned_STREAM_Add(args.stream_array_size);
 #else
 #pragma omp parallel for
-	for (j=0; j<args.stream_array_size; j++)
+        for (sind=0; sind<args.stride; ++sind) {
+          for (j=sind; j<args.stream_array_size; j+=args.stride)
 	    c[j] = a[j]+b[j];
+        }
 #endif
 	times[2][k] = mysecond() - times[2][k];
 	
@@ -424,8 +431,10 @@ int main(int argc, char **argv)
         tuned_STREAM_Triad(args.stream_array_size,scalar);
 #else
 #pragma omp parallel for
-	for (j=0; j<args.stream_array_size; j++)
+        for (sind=0; sind<args.stride; ++sind) {
+          for (j=sind; j<args.stream_array_size; j+=args.stride)
 	    a[j] = b[j]+scalar*c[j];
+        }
 #endif
 	times[3][k] = mysecond() - times[3][k];
 	}
