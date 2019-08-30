@@ -271,15 +271,16 @@ int main(int argc, char **argv)
     int			quantum, checktick();
     int			BytesPerWord;
     int			k;
-    ssize_t		j;
+    ssize_t		j, inner, inner_reps;
     STREAM_TYPE		scalar;
     double		t;
     double *(times[NTESTS]);
-    int sind;
 
     // argument parsing
     static struct argp argp = {options, parse_opt, NULL, NULL};
     argp_parse (&argp, argc, argv, 0, 0, &args);
+
+    inner_reps = ceil(1e7 / args.stream_array_size);
 
     // dynamic allocations
     a = malloc((args.stream_array_size+OFFSET) * sizeof(STREAM_TYPE));
@@ -292,10 +293,10 @@ int main(int argc, char **argv)
       }
     //
     assert(NTESTS == 4);
-    bytes[0] = 2 * sizeof(STREAM_TYPE) * args.stream_array_size;
-    bytes[1] = 2 * sizeof(STREAM_TYPE) * args.stream_array_size;
-    bytes[2] = 3 * sizeof(STREAM_TYPE) * args.stream_array_size;
-    bytes[3] = 3 * sizeof(STREAM_TYPE) * args.stream_array_size;
+    bytes[0] = 2 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
+    bytes[1] = 2 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
+    bytes[2] = 3 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
+    bytes[3] = 3 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
 
 
     /* --- SETUP --- determine precision and check timing --- */
@@ -323,7 +324,7 @@ int main(int argc, char **argv)
     printf("Total memory required = %.1f MiB (= %.1f GiB).\n",
 	(3.0 * BytesPerWord) * ( (double) args.stream_array_size / 1024.0/1024.),
 	(3.0 * BytesPerWord) * ( (double) args.stream_array_size / 1024.0/1024./1024.));
-    printf("Each kernel will be executed %ld times.\n", args.ntimes);
+    printf("Each kernel will be executed %ld times with %ld inner reps.\n", args.ntimes, inner_reps);
     printf(" The *best* time for each kernel (excluding the first iteration)\n"); 
     printf(" will be used to compute the reported bandwidth.\n");
 
@@ -367,9 +368,10 @@ int main(int argc, char **argv)
     }
 
     t = mysecond();
+    for (inner=0; inner<inner_reps; inner++)
 #pragma omp parallel for
-    for (j = 0; j < args.stream_array_size; j++)
-		a[j] = 2.0E0 * a[j];
+      for (j = 0; j < args.stream_array_size; j++)
+        a[j] = 2.0E0 * a[j];
     t = 1.0E6 * (mysecond() - t);
 
     printf("Each test below will take on the order"
@@ -391,43 +393,51 @@ int main(int argc, char **argv)
     for (k=0; k<args.ntimes; k++)
 	{
 	times[0][k] = mysecond();
+        for (inner=0; inner<inner_reps; inner++) {
 #ifdef TUNED
-        tuned_STREAM_Copy(args.stream_array_size);
+          tuned_STREAM_Copy(args.stream_array_size);
 #else
 #pragma omp parallel for
-        for (j=0; j<args.stream_array_size; j+=args.stride)
+          for (j=0; j<args.stream_array_size; j+=args.stride)
 	    c[j] = a[j];
 #endif
+        }
 	times[0][k] = mysecond() - times[0][k];
 	
 	times[1][k] = mysecond();
+        for (inner=0; inner<inner_reps; inner++) {
 #ifdef TUNED
-        tuned_STREAM_Scale(args.stream_array_size,scalar);
+          tuned_STREAM_Scale(args.stream_array_size,scalar);
 #else
 #pragma omp parallel for
-        for (j=0; j<args.stream_array_size; j+=args.stride)
+          for (j=0; j<args.stream_array_size; j+=args.stride)
 	    b[j] = scalar*c[j];
 #endif
+        }
 	times[1][k] = mysecond() - times[1][k];
 	
 	times[2][k] = mysecond();
+        for (inner=0; inner<inner_reps; inner++) {
 #ifdef TUNED
-        tuned_STREAM_Add(args.stream_array_size);
+          tuned_STREAM_Add(args.stream_array_size);
 #else
 #pragma omp parallel for
-        for (j=0; j<args.stream_array_size; j+=args.stride)
+          for (j=0; j<args.stream_array_size; j+=args.stride)
 	    c[j] = a[j]+b[j];
 #endif
-	times[2][k] = mysecond() - times[2][k];
-	
+        }
+        times[2][k] = mysecond() - times[2][k];
+
 	times[3][k] = mysecond();
+        for (inner=0; inner<inner_reps; inner++) {
 #ifdef TUNED
-        tuned_STREAM_Triad(args.stream_array_size,scalar);
+          tuned_STREAM_Triad(args.stream_array_size,scalar);
 #else
 #pragma omp parallel for
-        for (j=0; j<args.stream_array_size; j+=args.stride)
+          for (j=0; j<args.stream_array_size; j+=args.stride)
 	    a[j] = b[j]+scalar*c[j];
 #endif
+        }
 	times[3][k] = mysecond() - times[3][k];
 	}
 
@@ -456,8 +466,10 @@ int main(int argc, char **argv)
     printf(HLINE);
 
     /* --- Check Results --- */
-    checkSTREAMresults(&args);
-    printf(HLINE);
+    if (inner_reps == 1) {
+      checkSTREAMresults(&args);
+      printf(HLINE);
+    }
 
     // free allocations
     free(a);
