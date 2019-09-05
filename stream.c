@@ -293,10 +293,10 @@ int main(int argc, char **argv)
       }
     //
     assert(NTESTS == 4);
-    bytes[0] = 2 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
-    bytes[1] = 2 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
-    bytes[2] = 3 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
-    bytes[3] = 3 * sizeof(STREAM_TYPE) * args.stream_array_size * inner_reps;
+    bytes[0] = 2 * sizeof(STREAM_TYPE) * (args.stream_array_size/args.stride) * inner_reps;
+    bytes[1] = 2 * sizeof(STREAM_TYPE) * (args.stream_array_size/args.stride) * inner_reps;
+    bytes[2] = 3 * sizeof(STREAM_TYPE) * (args.stream_array_size/args.stride) * inner_reps;
+    bytes[3] = 3 * sizeof(STREAM_TYPE) * (args.stream_array_size/args.stride) * inner_reps;
 
 
     /* --- SETUP --- determine precision and check timing --- */
@@ -391,7 +391,7 @@ int main(int argc, char **argv)
 
     scalar = 3.0;
     for (k=0; k<args.ntimes; k++)
-	{
+	{   
 	times[0][k] = mysecond();
         for (inner=0; inner<inner_reps; inner++) {
 #ifdef TUNED
@@ -561,7 +561,7 @@ void checkSTREAMresults (struct args *args)
 	aSumErr = 0.0;
 	bSumErr = 0.0;
 	cSumErr = 0.0;
-	for (j=0; j<args->stream_array_size; j++) {
+	for (j=0; j<args->stream_array_size; j+=args->stride) {
 		aSumErr += abs(a[j] - aj);
 		bSumErr += abs(b[j] - bj);
 		cSumErr += abs(c[j] - cj);
@@ -588,7 +588,7 @@ void checkSTREAMresults (struct args *args)
 		printf ("Failed Validation on array a[], AvgRelAbsErr > epsilon (%e)\n",epsilon);
 		printf ("     Expected Value: %e, AvgAbsErr: %e, AvgRelAbsErr: %e\n",aj,aAvgErr,abs(aAvgErr)/aj);
 		ierr = 0;
-		for (j=0; j<args->stream_array_size; j++) {
+		for (j=0; j<args->stream_array_size; j+=args->stride) {
 			if (abs(a[j]/aj-1.0) > epsilon) {
 				ierr++;
 #ifdef VERBOSE
@@ -607,7 +607,7 @@ void checkSTREAMresults (struct args *args)
 		printf ("     Expected Value: %e, AvgAbsErr: %e, AvgRelAbsErr: %e\n",bj,bAvgErr,abs(bAvgErr)/bj);
 		printf ("     AvgRelAbsErr > Epsilon (%e)\n",epsilon);
 		ierr = 0;
-		for (j=0; j<args->stream_array_size; j++) {
+		for (j=0; j<args->stream_array_size; j+=args->stride) {
 			if (abs(b[j]/bj-1.0) > epsilon) {
 				ierr++;
 #ifdef VERBOSE
@@ -626,7 +626,7 @@ void checkSTREAMresults (struct args *args)
 		printf ("     Expected Value: %e, AvgAbsErr: %e, AvgRelAbsErr: %e\n",cj,cAvgErr,abs(cAvgErr)/cj);
 		printf ("     AvgRelAbsErr > Epsilon (%e)\n",epsilon);
 		ierr = 0;
-		for (j=0; j<args->stream_array_size; j++) {
+		for (j=0; j<args->stream_array_size; j+=args->stride) {
 			if (abs(c[j]/cj-1.0) > epsilon) {
 				ierr++;
 #ifdef VERBOSE
